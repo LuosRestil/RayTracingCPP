@@ -24,10 +24,10 @@ public:
     Vec3 camera_pos{0, 0, 0};
     double projection_plane_distance = 1.0;
     std::vector<Sphere> spheres = {
-        Sphere{Vec3{0.0, -1.0, 3.0}, 1.0, Vec3{255.0, 0.0, 0.0}},
-        Sphere{Vec3{2.0, 0.0, 4.0}, 1.0, Vec3{0.0, 0.0, 255.0}},
-        Sphere{Vec3{-2.0, 0.0, 4.0}, 1.0, Vec3{0.0, 255.0, 0.0}},
-        Sphere{Vec3{0.0, -5001.0, 0.0}, 5000.0, Vec3{255.0, 255.0, 0.0}}};
+        Sphere{Vec3{0.0, -1.0, 3.0}, 1.0, Vec3{255.0, 0.0, 0.0}, 500},
+        Sphere{Vec3{2.0, 0.0, 4.0}, 1.0, Vec3{0.0, 0.0, 255.0}, 500},
+        Sphere{Vec3{-2.0, 0.0, 4.0}, 1.0, Vec3{0.0, 255.0, 0.0}, 10},
+        Sphere{Vec3{0.0, -5001.0, 0.0}, 5000.0, Vec3{255.0, 255.0, 0.0}, 1000}};
     std::vector<Light> lights = {
         Light{"ambient", 0.2, Vec3{0, 0, 0}},
         Light{"point", 0.6, Vec3{2.0, 1.0, 0.0}},
@@ -89,8 +89,8 @@ public:
         Sphere *sphere = intersection.sphere.value();
         Vec3 intersection_point = origin + intersection.t * direction;
         Vec3 normal = (intersection_point - sphere->center).normalize();
-        double intensity = calculate_lighting(intersection_point, normal);
-        return sphere->color * intensity;
+        double intensity = calculate_lighting(intersection_point, normal, -direction, sphere->specular);
+        return ((sphere->color) * intensity).clamp(0, 255);
     }
 
     Intersection get_nearest_intersection(const Vec3 &origin, const Vec3 &direction, double min_t, double max_t)
@@ -133,7 +133,7 @@ public:
         return {t1, t2};
     }
 
-    double calculate_lighting(const Vec3 &point, const Vec3 &normal)
+    double calculate_lighting(const Vec3 &point, const Vec3 &normal, const Vec3 &view, double specular)
     {
         double intensity = 0.0;
         for (const Light &light : lights)
@@ -159,14 +159,28 @@ public:
                 if (blocker.sphere)
                     continue;
 
+                // diffuse
                 double lDotN = light_dir.dot(normal);
                 if (lDotN > 0)
                 {
                     intensity += light.intensity * (lDotN / light_dir.mag());
                 }
+
+                // specular
+                Vec3 reflection = reflect_ray(light_dir, normal);
+                double rDotV = reflection.dot(view);
+                if (rDotV > 0)
+                {
+                    intensity += light.intensity * std::pow(rDotV / (reflection.mag() * view.mag()), specular);
+                }
             }
         }
         return intensity;
+    }
+
+    Vec3 reflect_ray(const Vec3 &ray, const Vec3 &normal)
+    {
+        return 2 * normal * ray.dot(normal) - ray;
     }
 
     void put_pixel(int x, int y, const Vec3 &pixel_color)

@@ -5,4 +5,5 @@ struct Sphere
     Vec3 center;
     double radius;
     Vec3 color;
+    double specular;
 };
