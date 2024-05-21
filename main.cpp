@@ -87,7 +87,10 @@ public:
             return bg_color;
         
         Sphere *sphere = intersection.sphere.value();
-        return sphere->color;
+        Vec3 intersection_point = origin + intersection.t * direction;
+        Vec3 normal = (intersection_point - sphere->center).normalize();
+        double intensity = calculate_lighting(intersection_point, normal);
+        return sphere->color * intensity;
     }
 
     Intersection get_nearest_intersection(const Vec3 &origin, const Vec3 &direction, double min_t, double max_t)
@@ -128,6 +131,37 @@ public:
         double t1 = (-b + std::sqrt(discriminant)) / (2 * a);
         double t2 = (-b - std::sqrt(discriminant)) / (2 * a);
         return {t1, t2};
+    }
+
+    double calculate_lighting(const Vec3 &point, const Vec3 &normal)
+    {
+        double intensity = 0.0;
+        for (const Light &light : lights)
+        {
+            if (light.type == "ambient")
+            {
+                intensity += light.intensity;
+            }
+            else 
+            {
+                Vec3 light_dir{0, 0, 0};
+                if (light.type == "point")
+                {
+                    light_dir = light.position - point;
+                }
+                else // directional
+                {
+                    light_dir = light.position;  // actually direction
+                }
+
+                double lDotN = light_dir.dot(normal);
+                if (lDotN > 0)
+                {
+                    intensity += light.intensity * (lDotN / light_dir.mag());
+                }
+            }
+        }
+        return intensity;
     }
 
     void put_pixel(int x, int y, const Vec3 &pixel_color)
