@@ -6,7 +6,7 @@
 
 struct Intersection
 {
-    std::optional<Sphere*> sphere;
+    std::optional<Sphere *> sphere;
     double t;
 };
 
@@ -85,7 +85,7 @@ public:
         Intersection intersection = get_nearest_intersection(origin, direction, min_t, max_t);
         if (!intersection.sphere)
             return bg_color;
-        
+
         Sphere *sphere = intersection.sphere.value();
         Vec3 intersection_point = origin + intersection.t * direction;
         Vec3 normal = (intersection_point - sphere->center).normalize();
@@ -95,7 +95,7 @@ public:
 
     Intersection get_nearest_intersection(const Vec3 &origin, const Vec3 &direction, double min_t, double max_t)
     {
-        std::optional<Sphere*> nearest_sphere = std::nullopt;
+        std::optional<Sphere *> nearest_sphere = std::nullopt;
         double nearest_t = INFINITY;
 
         for (Sphere &sphere : spheres)
@@ -142,7 +142,7 @@ public:
             {
                 intensity += light.intensity;
             }
-            else 
+            else
             {
                 Vec3 light_dir{0, 0, 0};
                 if (light.type == "point")
@@ -151,8 +151,13 @@ public:
                 }
                 else // directional
                 {
-                    light_dir = light.position;  // actually direction
+                    light_dir = light.position; // actually direction
                 }
+
+                // shadow
+                Intersection blocker = get_nearest_intersection(point, light_dir, 0.001, 1);
+                if (blocker.sphere)
+                    continue;
 
                 double lDotN = light_dir.dot(normal);
                 if (lDotN > 0)
