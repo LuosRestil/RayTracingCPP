@@ -6,4 +6,5 @@ struct Sphere
     double radius;
     Vec3 color;
     double specular;
+    double reflectiveness;
 };

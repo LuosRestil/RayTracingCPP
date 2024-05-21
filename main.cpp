@@ -21,17 +21,18 @@ public:
     std::vector<sf::Uint8> pixels;
     // scene
     Vec3 bg_color{0, 0, 0};
-    Vec3 camera_pos{0, 0, 0};
+    Vec3 camera_pos{0, 0, -3};
     double projection_plane_distance = 1.0;
     std::vector<Sphere> spheres = {
-        Sphere{Vec3{0.0, -1.0, 3.0}, 1.0, Vec3{255.0, 0.0, 0.0}, 500},
-        Sphere{Vec3{2.0, 0.0, 4.0}, 1.0, Vec3{0.0, 0.0, 255.0}, 500},
-        Sphere{Vec3{-2.0, 0.0, 4.0}, 1.0, Vec3{0.0, 255.0, 0.0}, 10},
-        Sphere{Vec3{0.0, -5001.0, 0.0}, 5000.0, Vec3{255.0, 255.0, 0.0}, 1000}};
+        Sphere{Vec3{0.0, -1.0, 3.0}, 1.0, Vec3{255.0, 0.0, 0.0}, 500, 0.2},
+        Sphere{Vec3{2.0, 0.0, 4.0}, 1.0, Vec3{0.0, 0.0, 255.0}, 500, 0.3},
+        Sphere{Vec3{-2.0, 0.0, 4.0}, 1.0, Vec3{0.0, 255.0, 0.0}, 10, 0.4},
+        Sphere{Vec3{0.0, -5001.0, 0.0}, 5000.0, Vec3{255.0, 255.0, 0.0}, 1000, 0.5}};
     std::vector<Light> lights = {
         Light{"ambient", 0.2, Vec3{0, 0, 0}},
         Light{"point", 0.6, Vec3{2.0, 1.0, 0.0}},
         Light{"directional", 0.2, Vec3{1.0, 4.0, 4.0}}};
+    int max_reflections = 3;
 
     RayTracer() : window(sf::VideoMode(window_size, window_size), "Ray Tracing"),
                   pixels(window_size * (window_size * 4))
@@ -66,7 +67,7 @@ public:
             for (int x = -window_size / 2; x < window_size / 2; x++)
             {
                 Vec3 direction = camera_to_viewport(x, y);
-                Vec3 pixel_color = trace_ray(camera_pos, direction, 0.0, INFINITY);
+                Vec3 pixel_color = trace_ray(camera_pos, direction, 0.0, INFINITY, max_reflections);
                 put_pixel(x, y, pixel_color);
             }
         }
@@ -80,7 +81,7 @@ public:
             projection_plane_distance};
     }
 
-    Vec3 trace_ray(const Vec3 &origin, const Vec3 &direction, double min_t, double max_t)
+    Vec3 trace_ray(const Vec3 &origin, const Vec3 &direction, double min_t, double max_t, int reflections)
     {
         Intersection intersection = get_nearest_intersection(origin, direction, min_t, max_t);
         if (!intersection.sphere)
@@ -90,7 +91,13 @@ public:
         Vec3 intersection_point = origin + intersection.t * direction;
         Vec3 normal = (intersection_point - sphere->center).normalize();
         double intensity = calculate_lighting(intersection_point, normal, -direction, sphere->specular);
-        return ((sphere->color) * intensity).clamp(0, 255);
+        Vec3 local_color = ((sphere->color) * intensity).clamp(0, 255);
+
+        if (sphere->reflectiveness <= 0 || reflections <= 0)
+            return local_color;
+
+        Vec3 reflected_color = trace_ray(intersection_point, reflect_ray(-direction, normal), 0.001, INFINITY, reflections - 1);
+        return (1 - sphere->reflectiveness) * local_color + sphere->reflectiveness * reflected_color;
     }
 
     Intersection get_nearest_intersection(const Vec3 &origin, const Vec3 &direction, double min_t, double max_t)
